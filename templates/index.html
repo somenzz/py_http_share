@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>AirShare - 局域网加密共享</title>
+    <style>
+        :root {
+            --bg-color: #F5F5F7;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --card-border: rgba(0, 0, 0, 0.06);
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --accent-blue: #0071E3;
+            --accent-blue-hover: #0077ED;
+            --accent-green: #34C759;
+            --accent-red: #FF3B30;
+            --glass-blur: blur(20px);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --radius-lg: 18px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --transition-swift: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --card-bg: rgba(28, 28, 30, 0.85);
+                --card-border: rgba(255, 255, 255, 0.12);
+                --text-primary: #F5F5F7;
+                --text-secondary: #86868B;
+                --accent-blue: #0A84FF;
+                --accent-blue-hover: #409CFF;
+                --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+                --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 40px;
+        }
+
+        /* Top Navigation */
+        header {
+            width: 100%;
+            max-width: 920px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 8px 4px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #0071E3, #409CFF);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+        }
+
+        .brand-title {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .lan-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--card-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            font-size: 13px;
+            color: var(--text-secondary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        /* Main Container & Segment Control */
+        main {
+            width: 100%;
+            max-width: 920px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .segment-control {
+            display: flex;
+            background: rgba(120, 120, 128, 0.12);
+            padding: 3px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 8px;
+        }
+
+        .segment-btn {
+            flex: 1;
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: var(--transition-swift);
+        }
+
+        .segment-btn.active {
+            background: #FFFFFF;
+            color: var(--text-primary);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .segment-btn.active {
+                background: #636366;
+                color: #FFFFFF;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--card-border);
+            box-shadow: var(--shadow-md);
+            padding: 24px;
+            transition: var(--transition-swift);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        textarea {
+            width: 100%;
+            height: 240px;
+            background: rgba(120, 120, 128, 0.06);
+            border: 1px solid transparent;
+            border-radius: var(--radius-md);
+            padding: 16px;
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--text-primary);
+            resize: vertical;
+            outline: none;
+            transition: var(--transition-swift);
+        }
+
+        textarea:focus {
+            border-color: var(--accent-blue);
+            background: rgba(120, 120, 128, 0.02);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.15);
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 14px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition-swift);
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-blue-hover);
+            transform: scale(1.02);
+        }
+
+        .btn-secondary {
+            background: rgba(120, 120, 128, 0.12);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(120, 120, 128, 0.2);
+            transform: scale(1.02);
+        }
+
+        .btn-danger {
+            background: rgba(255, 59, 48, 0.12);
+            color: var(--accent-red);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 59, 48, 0.2);
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        /* Drag & Drop Upload Zone */
+        .upload-zone {
+            border: 2px dashed rgba(120, 120, 128, 0.3);
+            border-radius: var(--radius-md);
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            background: rgba(120, 120, 128, 0.04);
+            transition: var(--transition-swift);
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent-blue);
+            background: rgba(0, 113, 227, 0.05);
+        }
+
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            color: var(--accent-blue);
+        }
+
+        .upload-hint {
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .upload-subhint {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* File List Grid */
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .file-card {
+            background: rgba(120, 120, 128, 0.06);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition-swift);
+        }
+
+        .file-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .file-preview {
+            height: 140px;
+            background: rgba(0, 0, 0, 0.03);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .file-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .file-preview .doc-icon {
+            font-size: 42px;
+            color: var(--text-secondary);
+        }
+
+        .file-meta {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .file-name {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-info {
+            font-size: 11px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .file-action-btn {
+            flex: 1;
+            padding: 5px 0;
+            font-size: 12px;
+            text-align: center;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            background: rgba(120, 120, 128, 0.12);
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: var(--transition-swift);
+        }
+
+        .file-action-btn:hover {
+            background: rgba(120, 120, 128, 0.25);
+        }
+
+        .file-action-btn.del:hover {
+            background: rgba(255, 59, 48, 0.15);
+            color: var(--accent-red);
+        }
+
+        /* Access Code Modal (Apple Style) */
+        .modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--card-border);
+            box-shadow: var(--shadow-md);
+            padding: 30px 24px;
+            width: 90%;
+            max-width: 360px;
+            text-align: center;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .modal-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .pin-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 20px;
+            letter-spacing: 6px;
+            text-align: center;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(120, 120, 128, 0.2);
+            background: rgba(120, 120, 128, 0.08);
+            color: var(--text-primary);
+            outline: none;
+            margin-bottom: 20px;
+        }
+
+        .pin-input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 3000;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Access Code Modal -->
+    <div id="authModal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-title">🔐 安全防护验证</div>
+            <div class="modal-desc">请输入 Access Code 共享口令以继续使用</div>
+            <input type="password" id="accessCodeInput" class="pin-input" placeholder="••••" maxlength="12" onkeyup="if(event.key==='Enter') submitCode()">
+            <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="submitCode()">验证并进入</button>
+        </div>
+    </div>
+
+    <header>
+        <div class="brand">
+            <div class="brand-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="brand-title">AirShare HTTPS</div>
+        </div>
+        <div class="lan-info" id="lanInfo">
+            <span class="status-dot"></span>
+            <span id="lanIpAddress">检测局域网中...</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="segment-control">
+            <button class="segment-btn active" onclick="switchTab('textTab')">文本便签</button>
+            <button class="segment-btn" onclick="switchTab('fileTab')">文件与图片 (<span id="fileCountBadge">0</span>)</button>
+        </div>
+
+        <!-- Section 1: Text Share -->
+        <div id="textTab" class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    加密文本便签
+                </div>
+                <div class="card-subtitle" id="textUpdateTime">未同步</div>
+            </div>
+
+            <textarea id="textEditor" placeholder="在此编辑文本，或按 Cmd+V / Ctrl+V 粘贴文本或图片..."></textarea>
+
+            <div class="action-bar">
+                <button class="btn btn-danger" onclick="clearText()">清空</button>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="copyText()">复制全文</button>
+                    <button class="btn btn-primary" onclick="saveText()">保存并广播</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Files & Images Share -->
+        <div id="fileTab" class="card hidden">
+            <div class="card-header">
+                <div class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    文件与图片共享
+                </div>
+                <div class="card-subtitle">拖拽文件或直接粘贴</div>
+            </div>
+
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(event)">
+                <div class="upload-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v13"/><path d="m16 6-4-4-4 4"/><path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>
+                </div>
+                <div class="upload-hint">点击或将文件/图片拖拽至此处上传</div>
+                <div class="upload-subhint">支持截屏后直接 Ctrl+V / Cmd+V 粘贴图片上传</div>
+            </div>
+
+            <div class="file-grid" id="fileGrid"></div>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        let accessCode = localStorage.getItem('AIRSHARE_CODE') || '';
+        let currentTextContent = "";
+
+        // Fetch wrapper with auth header & automatic 401 interceptor
+        async function authFetch(url, options = {}) {
+            options.headers = options.headers || {};
+            if (accessCode) {
+                options.headers['X-Access-Code'] = accessCode;
+            }
+
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401) {
+                    showAuthModal();
+                    throw new Error('Unauthorized');
+                }
+                return response;
+            } catch (err) {
+                if (err.message === 'Unauthorized') throw err;
+                throw err;
+            }
+        }
+
+        function showAuthModal() {
+            document.getElementById('authModal').classList.remove('hidden');
+            document.getElementById('accessCodeInput').focus();
+        }
+
+        async function submitCode() {
+            const inputVal = document.getElementById('accessCodeInput').value.trim();
+            if (!inputVal) return;
+
+            try {
+                const res = await fetch('/api/verify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({code: inputVal})
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    accessCode = inputVal;
+                    localStorage.setItem('AIRSHARE_CODE', accessCode);
+                    document.getElementById('authModal').classList.add('hidden');
+                    showToast('验证成功');
+                    loadInfo();
+                    fetchText();
+                    loadFiles();
+                } else {
+                    showToast('口令错误，请重试');
+                }
+            } catch (e) {
+                showToast('验证请求失败');
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (tabId === 'textTab') {
+                document.getElementById('textTab').classList.remove('hidden');
+                document.getElementById('fileTab').classList.add('hidden');
+            } else {
+                document.getElementById('textTab').classList.add('hidden');
+                document.getElementById('fileTab').classList.remove('hidden');
+                loadFiles();
+            }
+        }
+
+        function showToast(msg) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerText = msg;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        async function loadInfo() {
+            try {
+                const res = await authFetch('/api/info');
+                const data = await res.json();
+                if (data.urls && data.urls.length > 0) {
+                    document.getElementById('lanIpAddress').innerText = `HTTPS LAN: ${data.urls.join(' | ')}`;
+                }
+            } catch (e) {}
+        }
+
+        async function fetchText() {
+            try {
+                const res = await authFetch('/api/text');
+                const data = await res.json();
+                const textarea = document.getElementById('textEditor');
+
+                if (data.content !== currentTextContent && document.activeElement !== textarea) {
+                    textarea.value = data.content;
+                    currentTextContent = data.content;
+                }
+
+                if (data.updated_at) {
+                    document.getElementById('textUpdateTime').innerText = `上次更新: ${data.updated_at}`;
+                } else {
+                    document.getElementById('textUpdateTime').innerText = `新内容`;
+                }
+            } catch (e) {}
+        }
+
+        async function saveText() {
+            const content = document.getElementById('textEditor').value;
+            try {
+                const res = await authFetch('/api/text', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: content})
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    currentTextContent = content;
+                    showToast('已保存并加密广播');
+                    if (data.updated_at) {
+                        document.getElementById('textUpdateTime').innerText = `上次更新: ${data.updated_at}`;
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function copyText() {
+            const textarea = document.getElementById('textEditor');
+            textarea.select();
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                showToast('已成功复制文本');
+            }).catch(() => showToast('复制失败'));
+        }
+
+        async function clearText() {
+            if (!confirm('确定要清空所有人共享的文本吗？')) return;
+            try {
+                await authFetch('/api/text', { method: 'DELETE' });
+                document.getElementById('textEditor').value = '';
+                currentTextContent = '';
+                showToast('文本已清空');
+            } catch (e) {}
+        }
+
+        async function loadFiles() {
+            try {
+                const res = await authFetch('/api/files');
+                const data = await res.json();
+                const grid = document.getElementById('fileGrid');
+                grid.innerHTML = '';
+
+                document.getElementById('fileCountBadge').innerText = data.files.length;
+
+                if (data.files.length === 0) {
+                    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: 40px 0;">暂无共享文件</div>`;
+                    return;
+                }
+
+                data.files.forEach(f => {
+                    const card = document.createElement('div');
+                    card.className = 'file-card';
+
+                    let previewHtml = f.is_image
+                        ? `<div class="file-preview"><img src="${f.url}" alt="${f.name}" loading="lazy"></div>`
+                        : `<div class="file-preview"><div class="doc-icon">📄</div></div>`;
+
+                    card.innerHTML = `
+                        ${previewHtml}
+                        <div class="file-meta">
+                            <div class="file-name" title="${f.name}">${f.name}</div>
+                            <div class="file-info">
+                                <span>${f.size_formatted}</span>
+                                <span>${f.mod_time.split(' ')[1]}</span>
+                            </div>
+                            <div class="file-actions">
+                                <a class="file-action-btn" href="${f.url}" target="_blank">查看</a>
+                                <a class="file-action-btn" href="${f.url}&download=1">下载</a>
+                                <button class="file-action-btn del" onclick="deleteFile('${f.name}')">删除</button>
+                            </div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            } catch (e) {}
+        }
+
+        async function deleteFile(filename) {
+            if (!confirm(`确定要删除文件 "${filename}" 吗？`)) return;
+            try {
+                const res = await authFetch(`/api/files/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast('文件已删除');
+                    loadFiles();
+                }
+            } catch (e) {}
+        }
+
+        async function uploadFiles(files) {
+            if (files.length === 0) return;
+            const formData = new FormData();
+            for (let f of files) formData.append('file', f);
+
+            showToast('正在加密传输上传...');
+            try {
+                const res = await authFetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast(`成功上传 ${data.files.length} 个文件`);
+                    loadFiles();
+                }
+            } catch (e) {}
+        }
+
+        function handleFileSelect(e) {
+            uploadFiles(e.target.files);
+        }
+
+        const uploadZone = document.getElementById('uploadZone');
+        ['dragenter', 'dragover'].forEach(name => {
+            uploadZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(name => {
+            uploadZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+            });
+        });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadFiles(e.dataTransfer.files);
+        });
+
+        document.addEventListener('paste', (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            const imageFiles = [];
+
+            for (let item of items) {
+                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                    const blob = item.getAsFile();
+                    if (blob) imageFiles.push(blob);
+                }
+            }
+
+            if (imageFiles.length > 0) {
+                e.preventDefault();
+                uploadFiles(imageFiles);
+                switchTab('fileTab');
+                document.querySelectorAll('.segment-btn')[1].classList.add('active');
+                document.querySelectorAll('.segment-btn')[0].classList.remove('active');
+                showToast('检测到剪贴板图片，已加密上传');
+            }
+        });
+
+        let typingTimer;
+        document.getElementById('textEditor').addEventListener('input', () => {
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(saveText, 1500);
+        });
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (!accessCode) {
+                showAuthModal();
+            } else {
+                try {
+                    await loadInfo();
+                    await fetchText();
+                    await loadFiles();
+                } catch (e) {}
+            }
+
+            setInterval(() => {
+                if (accessCode) {
+                    fetchText();
+                    if (!document.getElementById('fileTab').classList.contains('hidden')) {
+                        loadFiles();
+                    }
+                }
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
