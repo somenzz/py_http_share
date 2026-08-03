@@ -1,3 +1,5 @@
 certs/
 data/
 uploads/
+.env
+__pycache__

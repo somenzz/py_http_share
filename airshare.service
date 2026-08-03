@@ -1,0 +1,28 @@
+[Unit]
+Description=AirShare - LAN encrypted HTTPS file/text sharing service
+After=network.target
+
+[Service]
+Type=simple
+User=aaron
+Group=aaron
+WorkingDirectory=/home/aaron/github/somenzz/py_http_share
+EnvironmentFile=-/home/aaron/github/somenzz/py_http_share/.env
+ExecStart=/home/aaron/py312env/bin/gunicorn -w 4 -b 0.0.0.0:10240 app:app \
+  --keyfile certs/share.local.key \
+  --certfile certs/share.local.crt \
+  --access-logfile /var/log/airshare/access.log \
+  --error-logfile /var/log/airshare/error.log \
+  --capture-output
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target
