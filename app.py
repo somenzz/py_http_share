@@ -205,40 +205,90 @@ def format_file_size(bytes_size):
         return f"{bytes_size / (1024 * 1024 * 1024):.2f} GB"
 
 
-@app.route("/api/files", methods=["GET"])
+@app.route("/api/files", methods=["GET", "DELETE"])
 @check_auth
-def list_files():
+def handle_files():
+    if request.method == "DELETE":
+        deleted_count = 0
+        try:
+            for name in os.listdir(app.config["UPLOAD_FOLDER"]):
+                file_path = os.path.join(app.config["UPLOAD_FOLDER"], name)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                    deleted_count += 1
+            return jsonify(
+                {
+                    "status": "success",
+                    "message": f"已清空所有文件 ({deleted_count} 个)",
+                    "deleted_count": deleted_count,
+                }
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    # GET request - list files with optional pagination
     files_info = []
     try:
         filenames = os.listdir(app.config["UPLOAD_FOLDER"])
-        filenames.sort(
+        regular_files = [
+            name
+            for name in filenames
+            if os.path.isfile(os.path.join(app.config["UPLOAD_FOLDER"], name))
+        ]
+        regular_files.sort(
             key=lambda x: os.path.getmtime(
                 os.path.join(app.config["UPLOAD_FOLDER"], x)
             ),
             reverse=True,
         )
 
-        for name in filenames:
+        total = len(regular_files)
+        page = request.args.get("page", type=int)
+        limit = request.args.get("limit", default=12, type=int)
+
+        if page is not None:
+            if page < 1:
+                page = 1
+            if limit < 1:
+                limit = 12
+            total_pages = (total + limit - 1) // limit if total > 0 else 1
+            start = (page - 1) * limit
+            end = start + limit
+            target_files = regular_files[start:end]
+        else:
+            total_pages = 1
+            target_files = regular_files
+
+        for name in target_files:
             file_path = os.path.join(app.config["UPLOAD_FOLDER"], name)
-            if os.path.isfile(file_path):
-                stat = os.stat(file_path)
-                ext = os.path.splitext(name)[1].lower()
-                files_info.append(
-                    {
-                        "name": name,
-                        "size_bytes": stat.st_size,
-                        "size_formatted": format_file_size(stat.st_size),
-                        "mod_time": datetime.datetime.fromtimestamp(
-                            stat.st_mtime
-                        ).strftime("%Y-%m-%d %H:%M:%S"),
-                        "is_image": ext in IMAGE_EXTENSIONS,
-                        "url": f"/uploads/{name}?code={ACCESS_CODE}",
-                    }
-                )
+            stat = os.stat(file_path)
+            ext = os.path.splitext(name)[1].lower()
+            files_info.append(
+                {
+                    "name": name,
+                    "size_bytes": stat.st_size,
+                    "size_formatted": format_file_size(stat.st_size),
+                    "mod_time": datetime.datetime.fromtimestamp(
+                        stat.st_mtime
+                    ).strftime("%Y-%m-%d %H:%M:%S"),
+                    "is_image": ext in IMAGE_EXTENSIONS,
+                    "url": f"/uploads/{name}?code={ACCESS_CODE}",
+                }
+            )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    return jsonify({"files": files_info})
+    response_data = {
+        "files": files_info,
+        "total": total,
+    }
+    if page is not None:
+        response_data["page"] = page
+        response_data["limit"] = limit
+        response_data["total_pages"] = total_pages
+
+    return jsonify(response_data)
+
 
 
 @app.route("/api/upload", methods=["POST"])

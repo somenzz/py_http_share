@@ -271,6 +271,36 @@
             transform: scale(0.97);
         }
 
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            pointer-events: none;
+            transform: none !important;
+        }
+
+        /* Pagination Bar */
+        .pagination-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .pagination-info {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            user-select: none;
+        }
+
+        .pagination-btn {
+            padding: 6px 14px;
+            font-size: 13px;
+        }
+
         /* Drag & Drop Upload Zone */
         .upload-zone {
             border: 2px dashed rgba(120, 120, 128, 0.3);
@@ -549,7 +579,13 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     文件与图片共享
                 </div>
-                <div class="card-subtitle">拖拽文件或直接粘贴</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="card-subtitle">拖拽文件或直接粘贴</div>
+                    <button class="btn btn-danger" id="clearFilesBtn" style="padding: 5px 12px; font-size: 13px;" onclick="clearAllFiles()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        一键清空
+                    </button>
+                </div>
             </div>
 
             <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
@@ -562,6 +598,20 @@
             </div>
 
             <div class="file-grid" id="fileGrid"></div>
+
+            <div class="pagination-bar hidden" id="paginationBar">
+                <button class="btn btn-secondary pagination-btn" id="prevPageBtn" onclick="changePage(-1)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    上一页
+                </button>
+                <div class="pagination-info" id="paginationInfo">
+                    第 <span id="currentPageNum">1</span> / <span id="totalPageNum">1</span> 页 (共 <span id="totalFileCount">0</span> 个)
+                </div>
+                <button class="btn btn-secondary pagination-btn" id="nextPageBtn" onclick="changePage(1)">
+                    下一页
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
         </div>
     </main>
 
@@ -570,6 +620,10 @@
     <script>
         let accessCode = localStorage.getItem('AIRSHARE_CODE') || '';
         let currentTextContent = "";
+        let currentFilePage = 1;
+        const filePageLimit = 12;
+        let totalFilePages = 1;
+        let isFilesLoading = false;
 
         // Fetch wrapper with auth header & automatic 401 interceptor
         async function authFetch(url, options = {}) {
@@ -717,18 +771,51 @@
             } catch (e) {}
         }
 
-        async function loadFiles() {
+        async function loadFiles(page) {
+            if (page !== undefined) {
+                currentFilePage = page;
+            }
+            if (isFilesLoading) return;
+            isFilesLoading = true;
+
             try {
-                const res = await authFetch('/api/files');
+                const res = await authFetch(`/api/files?page=${currentFilePage}&limit=${filePageLimit}`);
                 const data = await res.json();
                 const grid = document.getElementById('fileGrid');
+                const paginationBar = document.getElementById('paginationBar');
+                const clearBtn = document.getElementById('clearFilesBtn');
+
+                const total = data.total !== undefined ? data.total : (data.files ? data.files.length : 0);
+                document.getElementById('fileCountBadge').innerText = total;
+
+                totalFilePages = data.total_pages || Math.max(1, Math.ceil(total / filePageLimit));
+
+                // If current page is beyond total pages (e.g. after deletion), auto fallback
+                if (currentFilePage > totalFilePages && totalFilePages >= 1) {
+                    currentFilePage = totalFilePages;
+                    isFilesLoading = false;
+                    return loadFiles(currentFilePage);
+                }
+
+                if (clearBtn) {
+                    clearBtn.disabled = (total === 0);
+                }
+
                 grid.innerHTML = '';
 
-                document.getElementById('fileCountBadge').innerText = data.files.length;
-
-                if (data.files.length === 0) {
+                if (total === 0 || !data.files || data.files.length === 0) {
                     grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: 40px 0;">暂无共享文件</div>`;
+                    if (paginationBar) paginationBar.classList.add('hidden');
                     return;
+                }
+
+                if (paginationBar) {
+                    paginationBar.classList.remove('hidden');
+                    document.getElementById('currentPageNum').innerText = currentFilePage;
+                    document.getElementById('totalPageNum').innerText = totalFilePages;
+                    document.getElementById('totalFileCount').innerText = total;
+                    document.getElementById('prevPageBtn').disabled = currentFilePage <= 1;
+                    document.getElementById('nextPageBtn').disabled = currentFilePage >= totalFilePages;
                 }
 
                 data.files.forEach(f => {
@@ -756,7 +843,40 @@
                     `;
                     grid.appendChild(card);
                 });
-            } catch (e) {}
+            } catch (e) {
+            } finally {
+                isFilesLoading = false;
+            }
+        }
+
+        function changePage(delta) {
+            const targetPage = currentFilePage + delta;
+            if (targetPage >= 1 && targetPage <= totalFilePages) {
+                loadFiles(targetPage);
+            }
+        }
+
+        async function clearAllFiles() {
+            const total = parseInt(document.getElementById('fileCountBadge').innerText || '0', 10);
+            if (total === 0) {
+                showToast('当前暂无文件可清空');
+                return;
+            }
+            if (!confirm('确定要清空所有已上传的文件和图片吗？此操作不可恢复！')) return;
+
+            try {
+                const res = await authFetch('/api/files', { method: 'DELETE' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast(data.message || '所有文件已清空');
+                    currentFilePage = 1;
+                    loadFiles(1);
+                } else {
+                    showToast(data.error || '清空失败');
+                }
+            } catch (e) {
+                showToast('清空请求失败');
+            }
         }
 
         async function deleteFile(filename) {
@@ -785,7 +905,8 @@
                 const data = await res.json();
                 if (data.status === 'success') {
                     showToast(`成功上传 ${data.files.length} 个文件`);
-                    loadFiles();
+                    currentFilePage = 1;
+                    loadFiles(1);
                 }
             } catch (e) {}
         }
