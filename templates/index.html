@@ -645,6 +645,15 @@
             }
         }
 
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         function showAuthModal() {
             document.getElementById('authModal').classList.remove('hidden');
             document.getElementById('accessCodeInput').focus();
@@ -821,15 +830,16 @@
                 data.files.forEach(f => {
                     const card = document.createElement('div');
                     card.className = 'file-card';
+                    const safeName = escapeHtml(f.name);
 
                     let previewHtml = f.is_image
-                        ? `<div class="file-preview"><img src="${f.url}" alt="${f.name}" loading="lazy"></div>`
+                        ? `<div class="file-preview"><img src="${f.url}" alt="${safeName}" loading="lazy"></div>`
                         : `<div class="file-preview"><div class="doc-icon">📄</div></div>`;
 
                     card.innerHTML = `
                         ${previewHtml}
                         <div class="file-meta">
-                            <div class="file-name" title="${f.name}">${f.name}</div>
+                            <div class="file-name" title="${safeName}">${safeName}</div>
                             <div class="file-info">
                                 <span>${f.size_formatted}</span>
                                 <span>${f.mod_time.split(' ')[1]}</span>
@@ -837,7 +847,7 @@
                             <div class="file-actions">
                                 <a class="file-action-btn" href="${f.url}" target="_blank">查看</a>
                                 <a class="file-action-btn" href="${f.url}&download=1">下载</a>
-                                <button class="file-action-btn del" onclick="deleteFile('${f.name}')">删除</button>
+                                <button class="file-action-btn del" data-filename="${safeName}" onclick="deleteFile(this.dataset.filename)">删除</button>
                             </div>
                         </div>
                     `;

@@ -1,10 +1,12 @@
 import os
+import re
 import time
 import socket
 import datetime
+import unicodedata
+from urllib.parse import quote
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, send_from_directory
-from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 # Load .env file from project root
@@ -194,6 +196,23 @@ def handle_text():
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"}
 
 
+def safe_filename(filename: str) -> str:
+    """
+    安全处理文件名并完整保留中文字符及 Unicode/CJK 字符。
+    防止目录遍历、路径分隔符、控制字符以及非法文件系统字符。
+    """
+    if not filename:
+        return ""
+    filename = unicodedata.normalize("NFC", filename)
+    filename = filename.replace("\\", "/").split("/")[-1]
+    filename = re.sub(r'[/\\:*?"<>|\x00-\x1f]', "_", filename)
+    filename = filename.strip()
+    while filename.startswith("."):
+        filename = filename[1:]
+    filename = filename.rstrip(". ")
+    return filename
+
+
 def format_file_size(bytes_size):
     if bytes_size < 1024:
         return f"{bytes_size} B"
@@ -272,7 +291,7 @@ def handle_files():
                         stat.st_mtime
                     ).strftime("%Y-%m-%d %H:%M:%S"),
                     "is_image": ext in IMAGE_EXTENSIONS,
-                    "url": f"/uploads/{name}?code={ACCESS_CODE}",
+                    "url": f"/uploads/{quote(name)}?code={ACCESS_CODE}",
                 }
             )
     except Exception as e:
@@ -303,8 +322,8 @@ def upload_file():
     for file in uploaded_files:
         if file.filename == "":
             continue
-        filename = secure_filename(file.filename)
-        if not filename:
+        filename = safe_filename(file.filename)
+        if not filename or filename == "blob":
             ext = ".png"
             if file.mimetype == "image/jpeg":
                 ext = ".jpg"
@@ -333,7 +352,7 @@ def upload_file():
                     "%Y-%m-%d %H:%M:%S"
                 ),
                 "is_image": ext in IMAGE_EXTENSIONS,
-                "url": f"/uploads/{filename}?code={ACCESS_CODE}",
+                "url": f"/uploads/{quote(filename)}?code={ACCESS_CODE}",
             }
         )
 
@@ -352,7 +371,7 @@ def download_file(filename):
 @app.route("/api/files/<path:filename>", methods=["DELETE"])
 @check_auth
 def delete_file(filename):
-    secure_name = secure_filename(filename)
+    secure_name = safe_filename(filename)
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], secure_name)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         try:
